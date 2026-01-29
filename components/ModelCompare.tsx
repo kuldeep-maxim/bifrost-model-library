@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useMemo, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, startTransition } from 'react';
 import { useRouter } from 'next/navigation';
 import { ProcessedModel } from '@/types/model';
 import { formatProviderName } from '@/lib/api';
 import { getModeDisplayName } from '@/lib/calculator';
 import { getProviderLogo } from '@/lib/providerLogos';
+import { formatNumber, formatTokenCount } from '@/lib/format';
 
 type ModeFamily =
   | 'text'
@@ -72,8 +73,7 @@ function getPricingLines(model: ProcessedModel): string[] {
 
 function formatTokens(value?: number) {
   if (!value) return '—';
-  if (value > 100000) return `${(value / 1000).toFixed(0)}k`;
-  return value.toLocaleString();
+  return formatTokenCount(value);
 }
 
 function ModelHeader({ model }: { model: ProcessedModel }) {
@@ -129,7 +129,7 @@ function getComparePath(left: ProcessedModel, right?: ProcessedModel | null) {
   if (!right) {
     return `/compare/${encodeURIComponent(left.provider)}/${left.slug}`;
   }
-  return `/compare/${encodeURIComponent(left.provider)}/${left.slug}/vs/${encodeURIComponent(right.provider)}/${right.slug}`;
+  return `/compare/${encodeURIComponent(left.provider)}/${left.slug}?compare=${encodeURIComponent(right.provider)}/${right.slug}`;
 }
 
 function PricingBlock({ model }: { model: ProcessedModel }) {
@@ -263,7 +263,7 @@ function getContextLength(model: ProcessedModel) {
 function formatK(value: number) {
   if (!value) return '—';
   if (value >= 1000) return `${(value / 1000).toFixed(0)}K`;
-  return value.toLocaleString();
+  return formatNumber(value);
 }
 
 export default function ModelCompare({
@@ -292,6 +292,8 @@ export default function ModelCompare({
   const rightInputRef = useRef<HTMLInputElement>(null);
   const leftDropdownRef = useRef<HTMLDivElement>(null);
   const rightDropdownRef = useRef<HTMLDivElement>(null);
+  const comparisonTableRef = useRef<HTMLDivElement>(null);
+  const scrollPositionRef = useRef<number>(0);
 
   useEffect(() => {
     const run = async () => {
@@ -363,24 +365,360 @@ export default function ModelCompare({
   const leftModesValue = leftModel?.data.modes ?? leftModel?.data.supported_modes ?? leftModel?.data.mode;
   const rightModesValue = rightModel?.data.modes ?? rightModel?.data.supported_modes ?? rightModel?.data.mode;
 
+  const capabilityDefinitions = [
+    { key: 'supports_function_calling', label: 'Function Calling' },
+    { key: 'supports_vision', label: 'Vision' },
+    { key: 'supports_reasoning', label: 'Reasoning' },
+    { key: 'supports_web_search', label: 'Web Search' },
+    { key: 'supports_audio_input', label: 'Audio Input' },
+    { key: 'supports_audio_output', label: 'Audio Output' },
+    { key: 'supports_tool_choice', label: 'Tool Choice' },
+    { key: 'supports_response_schema', label: 'Response Schema' },
+    { key: 'supports_parallel_function_calling', label: 'Parallel Function Calling' },
+    { key: 'supports_prompt_caching', label: 'Prompt Caching' },
+    { key: 'supports_system_messages', label: 'System Messages' },
+  ] as const;
+
+  const buildModelFacts = (model: ProcessedModel) => {
+    const inputCostRaw =
+      model.data.input_cost_per_token ??
+      model.data.input_cost_per_image ??
+      model.data.input_cost_per_second ??
+      model.data.ocr_cost_per_page;
+    const outputCostRaw =
+      model.data.output_cost_per_token ??
+      model.data.output_cost_per_image ??
+      model.data.output_cost_per_second;
+
+    const contextLength = getContextLength(model);
+    const facts: Array<{ category: string; items: string[] }> = [];
+
+    // Provider and mode information
+    const basicInfo: string[] = [];
+    basicInfo.push(`${model.displayName} is a ${getModesDisplay(model).toLowerCase()} model provided by ${formatProviderName(model.provider)}.`);
+
+    if (contextLength > 0) {
+      if (contextLength >= 1000000) {
+        basicInfo.push(`This model offers an exceptional context window of ${formatK(contextLength)} tokens, making it ideal for processing extensive documents, long conversations, or large codebases.`);
+      } else if (contextLength >= 100000) {
+        basicInfo.push(`With a context window of ${formatK(contextLength)} tokens, this model can handle substantial inputs such as detailed documents or extended conversation histories.`);
+      } else if (contextLength >= 32000) {
+        basicInfo.push(`The model supports a ${formatK(contextLength)}-token context window, suitable for moderate-sized documents and multi-turn conversations.`);
+      } else {
+        basicInfo.push(`This model has a context capacity of ${formatK(contextLength)} tokens.`);
+      }
+    }
+
+    if (basicInfo.length > 0) {
+      facts.push({ category: 'Overview', items: basicInfo });
+    }
+
+    // Pricing information
+    const pricingInfo: string[] = [];
+    if (model.data.input_cost_per_token != null) {
+      const costPer1M = (model.data.input_cost_per_token * 1_000_000).toFixed(2);
+      pricingInfo.push(`Input processing costs $${costPer1M} per million tokens.`);
+    }
+    if (model.data.output_cost_per_token != null) {
+      const costPer1M = (model.data.output_cost_per_token * 1_000_000).toFixed(2);
+      pricingInfo.push(`Output generation costs $${costPer1M} per million tokens.`);
+    }
+    if (model.data.input_cost_per_image != null) {
+      pricingInfo.push(`Image input processing is priced at $${model.data.input_cost_per_image.toFixed(4)} per image.`);
+    }
+    if (model.data.output_cost_per_image != null) {
+      pricingInfo.push(`Image generation costs $${model.data.output_cost_per_image.toFixed(4)} per image.`);
+    }
+    if (model.data.input_cost_per_second != null) {
+      pricingInfo.push(`Audio input processing costs $${model.data.input_cost_per_second.toFixed(4)} per second.`);
+    }
+    if (model.data.output_cost_per_second != null) {
+      pricingInfo.push(`Audio or video output generation costs $${model.data.output_cost_per_second.toFixed(4)} per second.`);
+    }
+    if (model.data.ocr_cost_per_page != null) {
+      pricingInfo.push(`OCR processing is priced at $${model.data.ocr_cost_per_page.toFixed(4)} per page.`);
+    }
+
+    if (pricingInfo.length > 0) {
+      facts.push({ category: 'Pricing', items: pricingInfo });
+    }
+
+    // Token limits
+    const limitsInfo: string[] = [];
+    if (model.data.max_output_tokens) {
+      limitsInfo.push(`The model can generate up to ${formatK(model.data.max_output_tokens)} tokens in a single response.`);
+    }
+    if (model.data.max_query_tokens) {
+      limitsInfo.push(`Query operations support up to ${formatK(model.data.max_query_tokens)} tokens.`);
+    }
+
+    if (limitsInfo.length > 0) {
+      facts.push({ category: 'Output Capabilities', items: limitsInfo });
+    }
+
+    // Endpoints and support
+    const supportInfo: string[] = [];
+    if (model.data.supported_endpoints && model.data.supported_endpoints.length > 0) {
+      supportInfo.push(`Available through the following endpoints: ${formatList(model.data.supported_endpoints)}.`);
+    }
+    if (model.data.deprecation_date) {
+      supportInfo.push(`Please note: This model is scheduled for deprecation on ${model.data.deprecation_date}.`);
+    }
+
+    if (supportInfo.length > 0) {
+      facts.push({ category: 'Availability', items: supportInfo });
+    }
+
+    return facts;
+  };
+
+  const buildCapabilityRows = (model: ProcessedModel) => {
+    const capabilities: string[] = [];
+    const data = model.data;
+
+    if (data.supports_function_calling) {
+      capabilities.push('Supports function calling, enabling integration with external tools and APIs for extended functionality.');
+    }
+    if (data.supports_vision) {
+      capabilities.push('Includes vision capabilities to process and analyze images alongside text inputs.');
+    }
+    if (data.supports_reasoning) {
+      capabilities.push('Features advanced reasoning capabilities for complex problem-solving and multi-step logical tasks.');
+    }
+    if (data.supports_web_search) {
+      capabilities.push('Provides web search integration for accessing real-time information and current data.');
+    }
+    if (data.supports_audio_input) {
+      capabilities.push('Accepts audio input, allowing for voice-based interactions and audio processing.');
+    }
+    if (data.supports_audio_output) {
+      capabilities.push('Generates audio output for text-to-speech and voice response applications.');
+    }
+    if (data.supports_tool_choice) {
+      capabilities.push('Allows explicit tool selection, giving developers fine-grained control over function execution.');
+    }
+    if (data.supports_response_schema) {
+      capabilities.push('Supports structured response schemas for consistent, predictable output formatting.');
+    }
+    if (data.supports_parallel_function_calling) {
+      capabilities.push('Enables parallel function calling to execute multiple operations simultaneously for improved efficiency.');
+    }
+    if (data.supports_prompt_caching) {
+      capabilities.push('Implements prompt caching to reduce costs and latency for repeated or similar queries.');
+    }
+    if (data.supports_system_messages) {
+      capabilities.push('Supports system messages for customizing model behavior and setting operational parameters.');
+    }
+
+    return capabilities;
+  };
+
+  const buildComparisonAnalysis = useMemo(() => {
+    if (!leftModel || !rightModel) return null;
+
+    const analysis: Array<{ title: string; content: string }> = [];
+
+    // Context window comparison
+    if (leftContextValue && rightContextValue && leftContextValue !== rightContextValue) {
+      const larger = leftContextValue > rightContextValue ? leftModel : rightModel;
+      const smaller = leftContextValue > rightContextValue ? rightModel : leftModel;
+      const largerValue = Math.max(leftContextValue, rightContextValue);
+      const smallerValue = Math.min(leftContextValue, rightContextValue);
+      const ratio = (largerValue / smallerValue).toFixed(1);
+
+      let contextAnalysis = `${larger.displayName} offers a ${formatK(largerValue)}-token context window, which is ${ratio}x larger than ${smaller.displayName}'s ${formatK(smallerValue)}-token capacity. `;
+
+      if (largerValue >= 200000) {
+        contextAnalysis += 'This substantial difference makes it significantly better suited for processing lengthy documents, extensive codebases, or maintaining long conversation histories.';
+      } else if (largerValue >= 100000) {
+        contextAnalysis += 'This advantage allows for handling larger inputs such as comprehensive reports, extended dialogues, or substantial code repositories.';
+      } else {
+        contextAnalysis += 'This difference may be relevant when working with moderately sized documents or multi-turn conversations.';
+      }
+
+      analysis.push({
+        title: 'Context Window Capacity',
+        content: contextAnalysis
+      });
+    }
+
+    // Pricing comparison
+    if (leftInputCostValue != null && rightInputCostValue != null && leftInputCostValue !== rightInputCostValue) {
+      const cheaper = leftInputCostValue < rightInputCostValue ? leftModel : rightModel;
+      const moreExpensive = leftInputCostValue < rightInputCostValue ? rightModel : leftModel;
+      const cheaperCost = Math.min(leftInputCostValue, rightInputCostValue);
+      const expensiveCost = Math.max(leftInputCostValue, rightInputCostValue);
+
+      let percentDiff = 0;
+      if (cheaperCost > 0) {
+        percentDiff = ((expensiveCost - cheaperCost) / cheaperCost * 100);
+      }
+
+      let pricingAnalysis = '';
+      if (leftModel.data.input_cost_per_token != null || rightModel.data.input_cost_per_token != null) {
+        const cheaperCostPer1M = (cheaperCost * 1_000_000).toFixed(2);
+        const expensiveCostPer1M = (expensiveCost * 1_000_000).toFixed(2);
+        pricingAnalysis = `${cheaper.displayName} has more competitive input pricing at $${cheaperCostPer1M} per million tokens, compared to ${moreExpensive.displayName}'s $${expensiveCostPer1M} per million tokens`;
+      } else {
+        pricingAnalysis = `${cheaper.displayName} offers lower input costs at ${getPrimaryInputCost(cheaper)}, compared to ${moreExpensive.displayName} at ${getPrimaryInputCost(moreExpensive)}`;
+      }
+
+      if (percentDiff > 0) {
+        pricingAnalysis += ` — approximately ${percentDiff.toFixed(0)}% more cost-effective`;
+      }
+      pricingAnalysis += '. This difference becomes significant in high-volume applications or when processing large amounts of input data.';
+
+      analysis.push({
+        title: 'Input Cost Comparison',
+        content: pricingAnalysis
+      });
+    }
+
+    // Output cost comparison
+    if (leftOutputCostValue != null && rightOutputCostValue != null && leftOutputCostValue !== rightOutputCostValue) {
+      const cheaper = leftOutputCostValue < rightOutputCostValue ? leftModel : rightModel;
+      const moreExpensive = leftOutputCostValue < rightOutputCostValue ? rightModel : leftModel;
+      const cheaperCost = Math.min(leftOutputCostValue, rightOutputCostValue);
+      const expensiveCost = Math.max(leftOutputCostValue, rightOutputCostValue);
+
+      let percentDiff = 0;
+      if (cheaperCost > 0) {
+        percentDiff = ((expensiveCost - cheaperCost) / cheaperCost * 100);
+      }
+
+      let outputAnalysis = '';
+      if (leftModel.data.output_cost_per_token != null || rightModel.data.output_cost_per_token != null) {
+        const cheaperCostPer1M = (cheaperCost * 1_000_000).toFixed(2);
+        const expensiveCostPer1M = (expensiveCost * 1_000_000).toFixed(2);
+        outputAnalysis = `For generated content, ${cheaper.displayName} is more economical at $${cheaperCostPer1M} per million output tokens versus ${moreExpensive.displayName}'s $${expensiveCostPer1M} per million tokens`;
+      } else {
+        outputAnalysis = `${cheaper.displayName} provides better value for output generation at ${getPrimaryOutputCost(cheaper)}, compared to ${moreExpensive.displayName} at ${getPrimaryOutputCost(moreExpensive)}`;
+      }
+
+      if (percentDiff > 0) {
+        outputAnalysis += ` (${percentDiff.toFixed(0)}% difference)`;
+      }
+      outputAnalysis += '. Consider this when your use case involves generating substantial amounts of text or requires frequent model responses.';
+
+      analysis.push({
+        title: 'Output Generation Costs',
+        content: outputAnalysis
+      });
+    }
+
+    // Output capacity comparison
+    if (leftModel.data.max_output_tokens && rightModel.data.max_output_tokens &&
+      leftModel.data.max_output_tokens !== rightModel.data.max_output_tokens) {
+      const larger = leftModel.data.max_output_tokens > rightModel.data.max_output_tokens ? leftModel : rightModel;
+      const smaller = leftModel.data.max_output_tokens > rightModel.data.max_output_tokens ? rightModel : leftModel;
+      const largerTokens = Math.max(leftModel.data.max_output_tokens, rightModel.data.max_output_tokens);
+      const smallerTokens = Math.min(leftModel.data.max_output_tokens, rightModel.data.max_output_tokens);
+
+      const outputAnalysis = `${larger.displayName} supports generating up to ${formatK(largerTokens)} tokens in a single response, while ${smaller.displayName} is limited to ${formatK(smallerTokens)} tokens. This ${formatK(largerTokens - smallerTokens)}-token advantage makes ${larger.displayName} better suited for tasks requiring longer outputs such as comprehensive reports, detailed code generation, or extensive creative writing.`;
+
+      analysis.push({
+        title: 'Maximum Output Length',
+        content: outputAnalysis
+      });
+    }
+
+    // Capability differences
+    const leftCapabilities = new Set<string>();
+    const rightCapabilities = new Set<string>();
+
+    if (leftModel.data.supports_function_calling) leftCapabilities.add('function_calling');
+    if (rightModel.data.supports_function_calling) rightCapabilities.add('function_calling');
+    if (leftModel.data.supports_vision) leftCapabilities.add('vision');
+    if (rightModel.data.supports_vision) rightCapabilities.add('vision');
+    if (leftModel.data.supports_reasoning) leftCapabilities.add('reasoning');
+    if (rightModel.data.supports_reasoning) rightCapabilities.add('reasoning');
+    if (leftModel.data.supports_web_search) leftCapabilities.add('web_search');
+    if (rightModel.data.supports_web_search) rightCapabilities.add('web_search');
+    if (leftModel.data.supports_audio_input) leftCapabilities.add('audio_input');
+    if (rightModel.data.supports_audio_input) rightCapabilities.add('audio_input');
+    if (leftModel.data.supports_audio_output) leftCapabilities.add('audio_output');
+    if (rightModel.data.supports_audio_output) rightCapabilities.add('audio_output');
+    if (leftModel.data.supports_prompt_caching) leftCapabilities.add('prompt_caching');
+    if (rightModel.data.supports_prompt_caching) rightCapabilities.add('prompt_caching');
+
+    const leftOnlyCaps = Array.from(leftCapabilities).filter(cap => !rightCapabilities.has(cap));
+    const rightOnlyCaps = Array.from(rightCapabilities).filter(cap => !leftCapabilities.has(cap));
+
+    const capabilityLabels: Record<string, string> = {
+      function_calling: 'function calling',
+      vision: 'vision processing',
+      reasoning: 'advanced reasoning',
+      web_search: 'web search',
+      audio_input: 'audio input',
+      audio_output: 'audio output',
+      prompt_caching: 'prompt caching'
+    };
+
+    if (leftOnlyCaps.length > 0 || rightOnlyCaps.length > 0) {
+      let capabilityAnalysis = '';
+
+      if (leftOnlyCaps.length > 0) {
+        const caps = leftOnlyCaps.map(c => capabilityLabels[c] || c).join(', ');
+        capabilityAnalysis += `${leftModel.displayName} uniquely offers ${caps}, `;
+      }
+      if (rightOnlyCaps.length > 0) {
+        const caps = rightOnlyCaps.map(c => capabilityLabels[c] || c).join(', ');
+        if (capabilityAnalysis) capabilityAnalysis += `while `;
+        capabilityAnalysis += `${rightModel.displayName} provides ${caps}`;
+      }
+
+      capabilityAnalysis += '. These distinct capabilities may be decisive factors depending on your application requirements.';
+
+      analysis.push({
+        title: 'Unique Capabilities',
+        content: capabilityAnalysis
+      });
+    }
+
+    // Provider comparison
+    if (leftModel.provider !== rightModel.provider) {
+      const providerAnalysis = `These models are offered by different providers: ${formatProviderName(leftModel.provider)} and ${formatProviderName(rightModel.provider)}. Consider factors such as regional availability, API reliability, support quality, existing infrastructure integrations, and compliance requirements when choosing between providers.`;
+
+      analysis.push({
+        title: 'Provider Considerations',
+        content: providerAnalysis
+      });
+    }
+
+    return analysis;
+  }, [
+    leftModel,
+    rightModel,
+    leftContextValue,
+    rightContextValue,
+    leftInputCostValue,
+    rightInputCostValue,
+    leftOutputCostValue,
+    rightOutputCostValue,
+  ]);
+
   const filteredLeftOptions = useMemo(() => {
     const q = leftQuery.trim().toLowerCase();
     return models.filter((m) => {
+      // Exclude the right model from left options
+      if (rightId && m.id === rightId) return false;
       if (!q) return true;
       const label = `${m.displayName} ${m.id} ${m.provider}`.toLowerCase();
       return label.includes(q);
     });
-  }, [models, leftQuery]);
+  }, [models, leftQuery, rightId]);
 
   const filteredRightOptions = useMemo(() => {
     const q = rightQuery.trim().toLowerCase();
     return models.filter((m) => {
+      // Exclude the left model from right options
+      if (leftId && m.id === leftId) return false;
       if (leftFamily && getModeFamily(m.data.mode) !== leftFamily) return false;
       if (!q) return true;
       const label = `${m.displayName} ${m.id} ${m.provider}`.toLowerCase();
       return label.includes(q);
     });
-  }, [models, rightQuery, leftFamily]);
+  }, [models, rightQuery, leftFamily, leftId]);
 
   const handleLeftSelect = (modelId: string) => {
     setLeftId(modelId);
@@ -404,11 +742,21 @@ export default function ModelCompare({
   };
 
   const handleRightSelect = (modelId: string) => {
+    // Preserve scroll position before navigation
+    const currentScrollY = window.scrollY;
+    scrollPositionRef.current = currentScrollY;
+
     if (!leftModel) {
       setLeftId(modelId);
       const nextLeft = models.find((m) => m.id === modelId) || null;
       if (nextLeft) {
-        router.push(getComparePath(nextLeft));
+        startTransition(() => {
+          router.push(getComparePath(nextLeft));
+          // Restore scroll immediately to prevent jump
+          requestAnimationFrame(() => {
+            window.scrollTo(0, currentScrollY);
+          });
+        });
       }
       return;
     }
@@ -416,7 +764,13 @@ export default function ModelCompare({
     const nextRight = models.find((m) => m.id === modelId) || null;
     setRightId(modelId);
     if (nextRight) {
-      router.push(getComparePath(leftModel, nextRight));
+      startTransition(() => {
+        router.push(getComparePath(leftModel, nextRight));
+        // Restore scroll immediately to prevent jump
+        requestAnimationFrame(() => {
+          window.scrollTo(0, currentScrollY);
+        });
+      });
     }
   };
 
@@ -445,15 +799,32 @@ export default function ModelCompare({
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
+  // Restore scroll position after model selection to prevent jumping
+  useLayoutEffect(() => {
+    if (scrollPositionRef.current > 0) {
+      // Restore scroll position synchronously before browser paint
+      window.scrollTo(0, scrollPositionRef.current);
+      scrollPositionRef.current = 0;
+    }
+  }, [leftModel, rightModel]);
+
   return (
     <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-12">
       <div className="mb-10 text-center">
         <span className="provider-badge">[ MODEL COMPARISON ]</span>
         <h1 className="text-3xl md:text-4xl font-[400] text-gray-900 mb-3">
-          Compare Two AI Models
+          {leftModel && rightModel
+            ? `Compare ${leftModel.displayName} vs ${rightModel.displayName}`
+            : leftModel
+              ? `Compare ${leftModel.displayName} with other models`
+              : 'Compare Two AI Models'}
         </h1>
         <p className="text-gray-600 text-sm">
-          Pick two models with similar modes to compare pricing, limits, and capabilities.
+          {leftModel && rightModel
+            ? `Compare pricing, limits, and capabilities between ${leftModel.displayName} and ${rightModel.displayName}.`
+            : leftModel
+              ? `Select another model to compare pricing, limits, and capabilities with ${leftModel.displayName}.`
+              : 'Pick two models with similar modes to compare pricing, limits, and capabilities.'}
         </p>
       </div>
 
@@ -504,9 +875,8 @@ export default function ModelCompare({
                       setLeftOpen(false);
                       setLeftQuery('');
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent-light transition-colors ${
-                      leftId === model.id ? 'bg-accent-light text-accent-dark' : 'text-gray-700'
-                    }`}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent-light transition-colors ${leftId === model.id ? 'bg-accent-light text-accent-dark' : 'text-gray-700'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <img
@@ -579,9 +949,8 @@ export default function ModelCompare({
                       setRightOpen(false);
                       setRightQuery('');
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent-light transition-colors ${
-                      rightId === model.id ? 'bg-accent-light text-accent-dark' : 'text-gray-700'
-                    }`}
+                    className={`w-full text-left px-3 py-2 text-sm hover:bg-accent-light transition-colors ${rightId === model.id ? 'bg-accent-light text-accent-dark' : 'text-gray-700'
+                      }`}
                   >
                     <div className="flex items-center gap-2">
                       <img
@@ -618,7 +987,7 @@ export default function ModelCompare({
       )}
 
       {(leftModel || rightModel) && (
-        <div className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+        <div ref={comparisonTableRef} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
           <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-5 border-b border-gray-200">
             <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Models</div>
             <div className="flex items-center gap-3 min-w-0">
@@ -790,6 +1159,142 @@ export default function ModelCompare({
 
           </div>
         </div>
+      )}
+
+      {(leftModel || rightModel) && (
+        <section className="mt-12">
+          <div className="mb-6 text-center">
+            <h2 className="text-2xl md:text-3xl font-[400] text-gray-900 mb-2">
+              Comparison Insights
+            </h2>
+            <p className="text-sm text-gray-600">
+              Comprehensive analysis based on the latest model metadata from the comparison table above.
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {leftModel && (
+              <details className="group border border-gray-200 rounded-lg bg-white">
+                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-4">
+                  <span className="text-base font-medium text-gray-900">
+                    What should I know about {leftModel.displayName}?
+                  </span>
+                  <span className="text-gray-500 group-open:rotate-180 transition-transform">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 pt-3 border-t border-gray-200">
+                  {buildModelFacts(leftModel).map((section, idx) => (
+                    <div key={idx} className={idx > 0 ? 'mt-4' : ''}>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">{section.category}</h4>
+                      <ul className="list-disc list-outside space-y-2 text-sm pl-6 leading-relaxed text-gray-700">
+                        {section.items.map((item, itemIdx) => (
+                          <li key={itemIdx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {rightModel && (
+              <details className="group border border-gray-200 rounded-lg bg-white">
+                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-4">
+                  <span className="text-base font-medium text-gray-900">
+                    What should I know about {rightModel.displayName}?
+                  </span>
+                  <span className="text-gray-500 group-open:rotate-180 transition-transform">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 pt-3 border-t border-gray-200">
+                  {buildModelFacts(rightModel).map((section, idx) => (
+                    <div key={idx} className={idx > 0 ? 'mt-4' : ''}>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">{section.category}</h4>
+                      <ul className="list-disc list-outside space-y-2 text-sm pl-6 leading-relaxed text-gray-700">
+                        {section.items.map((item, itemIdx) => (
+                          <li key={itemIdx}>{item}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+
+            {leftModel && buildCapabilityRows(leftModel).length > 0 && (
+              <details className="group border border-gray-200 rounded-lg bg-white">
+                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-4">
+                  <span className="text-base font-medium text-gray-900">
+                    What capabilities does {leftModel.displayName} support?
+                  </span>
+                  <span className="text-gray-500 group-open:rotate-180 transition-transform">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 pt-3 border-t border-gray-200">
+                  <ul className="list-disc list-outside space-y-2 text-sm pl-6 leading-relaxed text-gray-700">
+                    {buildCapabilityRows(leftModel).map((capability, idx) => (
+                      <li key={idx}>{capability}</li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
+            )}
+
+            {rightModel && buildCapabilityRows(rightModel).length > 0 && (
+              <details className="group border border-gray-200 rounded-lg bg-white">
+                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-4">
+                  <span className="text-base font-medium text-gray-900">
+                    What capabilities does {rightModel.displayName} support?
+                  </span>
+                  <span className="text-gray-500 group-open:rotate-180 transition-transform">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 pt-3 border-t border-gray-200">
+                  <ul className="list-disc list-outside space-y-2 text-sm pl-6 leading-relaxed text-gray-700">
+                    {buildCapabilityRows(rightModel).map((capability, idx) => (
+                      <li key={idx}>{capability}</li>
+                    ))}
+                  </ul>
+                </div>
+              </details>
+            )}
+
+            {leftModel && rightModel && buildComparisonAnalysis && buildComparisonAnalysis.length > 0 && (
+              <details className="group border border-gray-200 rounded-lg bg-white" open>
+                <summary className="cursor-pointer list-none px-5 py-4 flex items-center justify-between gap-4">
+                  <span className="text-base font-medium text-gray-900">
+                    How do {leftModel.displayName} and {rightModel.displayName} compare?
+                  </span>
+                  <span className="text-gray-500 group-open:rotate-180 transition-transform">
+                    <svg width="18" height="18" viewBox="0 0 16 16" fill="none" aria-hidden="true">
+                      <path d="M4 6L8 10L12 6" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                    </svg>
+                  </span>
+                </summary>
+                <div className="px-5 pb-5 pt-3 border-t border-gray-200 space-y-4">
+                  {buildComparisonAnalysis.map((section, idx) => (
+                    <div key={idx}>
+                      <h4 className="text-sm font-semibold text-gray-900 mb-2">{section.title}</h4>
+                      <p className="text-sm leading-relaxed text-gray-700">{section.content}</p>
+                    </div>
+                  ))}
+                </div>
+              </details>
+            )}
+          </div>
+        </section>
       )}
     </div>
   );

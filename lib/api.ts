@@ -1,5 +1,5 @@
 import { ModelEntry, ProcessedModel, ModelData } from '@/types/model';
-import { getProviderDisplayName } from '@/lib/providerLogos';
+import { isProviderWhitelisted, getProviderDisplayName } from '@/config/providers';
 
 const BIFROST_API_URL = 'https://getbifrost.ai/datasheet';
 
@@ -82,38 +82,60 @@ export async function fetchAllModels(): Promise<ModelEntry> {
   }
 }
 
-export function processModels(models: ModelEntry): ProcessedModel[] {
+export function processModels(models: ModelEntry, filterWhitelist: boolean = true): ProcessedModel[] {
   return Object.entries(models)
     .map(([id, data]) => {
       // Extract model name from ID (e.g., "openai/gpt-4" -> "gpt-4")
       const parts = id.split('/');
       const modelName = parts[parts.length - 1];
-      
+
       // Discard entries without model name
       if (!modelName || modelName.trim() === '') {
         return null;
       }
-      
+
+      // Filter by provider whitelist if enabled
+      if (filterWhitelist && !isProviderWhitelisted(data.provider)) {
+        return null;
+      }
+
       // Discard entries with empty or NA mode
       const mode = data.mode;
       if (!mode || mode.trim() === '' || mode.toLowerCase() === 'na' || mode.toLowerCase() === 'n/a') {
         return null;
       }
-      
+
       // Normalize pricing to per-token format
       const normalizedData: ModelData = {
         ...data,
         input_cost_per_token: normalizeCostPerToken(data.input_cost_per_token),
         output_cost_per_token: normalizeCostPerToken(data.output_cost_per_token),
       };
-      
+
+      // Filter out models with incomplete essential data
+      // A model must have at least ONE of these data points to be useful:
+      // 1. Input/output pricing (for cost comparison)
+      // 2. Max input tokens (for capacity planning)
+      // 3. Max output tokens (for response length planning)
+      const hasInputCost = normalizedData.input_cost_per_token != null || normalizedData.input_cost_per_image != null || normalizedData.input_cost_per_second != null;
+      const hasOutputCost = normalizedData.output_cost_per_token != null || normalizedData.output_cost_per_image != null || normalizedData.output_cost_per_second != null;
+      const hasPricing = hasInputCost || hasOutputCost;
+      const hasInputTokens = normalizedData.max_input_tokens != null && normalizedData.max_input_tokens > 0;
+      const hasOutputTokens = normalizedData.max_output_tokens != null && normalizedData.max_output_tokens > 0;
+      const hasContextLength = normalizedData.context_length != null && normalizedData.context_length > 0;
+
+      // Skip models that have no useful data
+      if (!hasPricing && !hasInputTokens && !hasOutputTokens && !hasContextLength) {
+        return null;
+      }
+
       // Use model name as-is without title case conversion
       const displayName = modelName;
-      
+
       // Create URL-friendly slug from model name only (for nested routes)
       // Replace both : and @ with - for URL safety
       const slug = modelName.replace(/[:@]/g, '-').toLowerCase();
-      
+
       return {
         id,
         name: modelName,
@@ -126,30 +148,35 @@ export function processModels(models: ModelEntry): ProcessedModel[] {
     .filter((model): model is ProcessedModel => model !== null);
 }
 
-export function getModelById(models: ModelEntry, modelId: string): ProcessedModel | null {
+export function getModelById(models: ModelEntry, modelId: string, filterWhitelist: boolean = true): ProcessedModel | null {
   const modelData = models[modelId];
   if (!modelData) return null;
-  
+
+  // Filter by provider whitelist if enabled
+  if (filterWhitelist && !isProviderWhitelisted(modelData.provider)) {
+    return null;
+  }
+
   const parts = modelId.split('/');
   const modelName = parts[parts.length - 1];
-  
+
   // Discard entries without model name
   if (!modelName || modelName.trim() === '') {
     return null;
   }
-  
+
   // Normalize pricing to per-token format
   const normalizedData = {
     ...modelData,
     input_cost_per_token: normalizeCostPerToken(modelData.input_cost_per_token),
     output_cost_per_token: normalizeCostPerToken(modelData.output_cost_per_token),
   };
-  
+
   // Use model name as-is without title case conversion
   const displayName = modelName;
   // Replace both : and @ with - for URL safety
   const slug = modelName.replace(/[:@]/g, '-').toLowerCase();
-  
+
   return {
     id: modelId,
     name: modelName,
@@ -216,10 +243,10 @@ export function getModelsByMode(models: ModelEntry, mode: string): ProcessedMode
   );
 }
 
-export function getAllProviders(models: ModelEntry): string[] {
-  // First, get all valid models (with names and pricing)
-  const validModels = processModels(models);
-  
+export function getAllProviders(models: ModelEntry, filterWhitelist: boolean = true): string[] {
+  // First, get all valid models (with names and pricing), optionally filtered by whitelist
+  const validModels = processModels(models, filterWhitelist);
+
   // Get unique providers from valid models only
   const providers = new Set<string>();
   validModels.forEach(model => {

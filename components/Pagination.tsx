@@ -1,4 +1,5 @@
 import Link from 'next/link';
+import { formatNumber } from '@/lib/format';
 
 function clamp(n: number, min: number, max: number): number {
   return Math.min(max, Math.max(min, n));
@@ -72,9 +73,9 @@ export default function Pagination({
   return (
     <div className="mt-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
       <div className="text-sm text-gray-600">
-        Showing <span className="font-mono">{rangeStart.toLocaleString()}</span>–
-        <span className="font-mono">{rangeEnd.toLocaleString()}</span> of{' '}
-        <span className="font-mono">{totalItems.toLocaleString()}</span>
+        Showing <span className="font-mono">{formatNumber(rangeStart)}</span>–
+        <span className="font-mono">{formatNumber(rangeEnd)}</span> of{' '}
+        <span className="font-mono">{formatNumber(totalItems)}</span>
       </div>
       <nav className="flex items-center justify-between sm:justify-start gap-2 w-full sm:w-auto" aria-label="Pagination">
         <Link

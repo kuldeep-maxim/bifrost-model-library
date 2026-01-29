@@ -268,10 +268,16 @@ code, pre, .monospace {
 }
 
 .navbar-actions {
-  display: flex;
+  display: none;
   align-items: center;
   gap: 0.5rem;
   margin-left: auto;
+}
+
+@media (min-width: 1280px) {
+  .navbar-actions {
+    display: flex;
+  }
 }
 
 .navbar-action-btn {

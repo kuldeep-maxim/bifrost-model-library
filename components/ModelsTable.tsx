@@ -7,6 +7,7 @@ import { ProcessedModel } from '@/types/model';
 import { formatCurrency, getModeDisplayName } from '@/lib/calculator';
 import { formatProviderName } from '@/lib/api';
 import { getProviderLogo } from '@/lib/providerLogos';
+import { formatTokenCount, formatNumber } from '@/lib/format';
 import Dropdown, { DropdownOption } from './Dropdown';
 
 interface ModelsTableProps {
@@ -684,9 +685,7 @@ export default function ModelsTable({
                       <Link href={modelUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full px-3 sm:px-4 py-3 sm:py-4">
                         {model.data.max_input_tokens ? (
                           <span className="text-sm font-mono text-gray-700">
-                            {model.data.max_input_tokens > 100000 
-                              ? `${(model.data.max_input_tokens / 1000).toFixed(0)}k`
-                              : model.data.max_input_tokens.toLocaleString()}
+                            {formatTokenCount(model.data.max_input_tokens)}
                           </span>
                         ) : (
                           <span className="text-sm text-gray-400">—</span>
@@ -697,9 +696,7 @@ export default function ModelsTable({
                       <Link href={modelUrl} target="_blank" rel="noopener noreferrer" className="block w-full h-full px-3 sm:px-4 py-3 sm:py-4">
                         {model.data.max_output_tokens ? (
                           <span className="text-sm font-mono text-gray-700">
-                            {model.data.max_output_tokens > 100000 
-                              ? `${(model.data.max_output_tokens / 1000).toFixed(0)}k`
-                              : model.data.max_output_tokens.toLocaleString()}
+                            {formatTokenCount(model.data.max_output_tokens)}
                           </span>
                         ) : (
                           <span className="text-sm text-gray-400">—</span>
@@ -762,13 +759,13 @@ export default function ModelsTable({
           <div className="text-sm text-gray-600">
             Showing{' '}
             <span className="font-mono">
-              {((currentClientPage - 1) * PAGE_SIZE + 1).toLocaleString()}
+              {formatNumber((currentClientPage - 1) * PAGE_SIZE + 1)}
             </span>
             –
             <span className="font-mono">
-              {Math.min(currentClientPage * PAGE_SIZE, filteredAndSortedModels.length).toLocaleString()}
+              {formatNumber(Math.min(currentClientPage * PAGE_SIZE, filteredAndSortedModels.length))}
             </span>{' '}
-            of <span className="font-mono">{filteredAndSortedModels.length.toLocaleString()}</span>
+            of <span className="font-mono">{formatNumber(filteredAndSortedModels.length)}</span>
           </div>
           <div className="flex items-center gap-2">
             <button

@@ -1,71 +1,47 @@
 import { MetadataRoute } from 'next';
 import { fetchAllModels, processModels, getAllProviders } from '@/lib/api';
 
+export const revalidate = 3600; // Revalidate every hour
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 
-    (process.env.NODE_ENV === 'production' 
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL ||
+    (process.env.NODE_ENV === 'production'
       ? 'https://www.getmaxim.ai/bifrost/model-library'
       : 'http://localhost:3000');
-  
+
   const modelsData = await fetchAllModels();
   const models = processModels(modelsData);
   const providers = getAllProviders(modelsData);
-  const PAGE_SIZE = 100;
 
-  const modelPages = models.map((model) => ({
-    url: `${baseUrl}/compare/${encodeURIComponent(model.provider)}/${model.slug}`,
+  const sitemapEntries: MetadataRoute.Sitemap = [];
+
+  // 1. Home Page
+  sitemapEntries.push({
+    url: baseUrl,
     lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.8,
-  }));
-
-  const providerPages = providers.map((provider) => ({
-    url: `${baseUrl}/provider/${encodeURIComponent(provider)}`,
-    lastModified: new Date(),
-    changeFrequency: 'weekly' as const,
-    priority: 0.7,
-  }));
-
-  // Pagination pages for homepage and provider tables
-  const homeTotalPages = Math.ceil(models.length / PAGE_SIZE);
-  const homePaginationPages =
-    homeTotalPages > 1
-      ? Array.from({ length: homeTotalPages - 1 }, (_, i) => i + 2).map((p) => ({
-          url: `${baseUrl}?page=${p}`,
-          lastModified: new Date(),
-          changeFrequency: 'daily' as const,
-          priority: 0.6,
-        }))
-      : [];
-
-  const providerCounts = models.reduce((acc, m) => {
-    acc[m.provider] = (acc[m.provider] || 0) + 1;
-    return acc;
-  }, {} as Record<string, number>);
-
-  const providerPaginationPages = providers.flatMap((provider) => {
-    const count = providerCounts[provider] || 0;
-    const totalPages = Math.ceil(count / PAGE_SIZE);
-    if (totalPages <= 1) return [];
-    return Array.from({ length: totalPages - 1 }, (_, i) => i + 2).map((p) => ({
-      url: `${baseUrl}/provider/${encodeURIComponent(provider)}?page=${p}`,
-      lastModified: new Date(),
-      changeFrequency: 'weekly' as const,
-      priority: 0.5,
-    }));
+    changeFrequency: 'daily',
+    priority: 1.0,
   });
 
-  return [
-    {
-      url: baseUrl,
+  // 2. Provider Pages
+  providers.forEach((provider) => {
+    sitemapEntries.push({
+      url: `${baseUrl}/provider/${encodeURIComponent(provider)}`,
       lastModified: new Date(),
-      changeFrequency: 'daily',
-      priority: 1,
-    },
-    ...homePaginationPages,
-    ...providerPages,
-    ...providerPaginationPages,
-    ...modelPages,
-  ];
-}
+      changeFrequency: 'weekly',
+      priority: 0.7,
+    });
+  });
 
+  // 3. Individual Model Pages
+  models.forEach((model) => {
+    sitemapEntries.push({
+      url: `${baseUrl}/compare/${encodeURIComponent(model.provider)}/${model.slug}`,
+      lastModified: new Date(),
+      changeFrequency: 'weekly',
+      priority: 0.8,
+    });
+  });
+
+  return sitemapEntries;
+}

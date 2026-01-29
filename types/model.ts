@@ -1,11 +1,11 @@
-export type ModelMode = 
-  | 'chat' 
+export type ModelMode =
+  | 'chat'
   | 'responses'
-  | 'image_generation' 
-  | 'audio_transcription' 
-  | 'embedding' 
-  | 'rerank' 
-  | 'video_generation' 
+  | 'image_generation'
+  | 'audio_transcription'
+  | 'embedding'
+  | 'rerank'
+  | 'video_generation'
   | 'ocr'
   | 'audio_generation'
   | 'voice'
@@ -24,6 +24,7 @@ export interface ModelData {
   max_output_tokens?: number;
   max_tokens?: number;
   max_query_tokens?: number;
+  context_length?: number;
   mode: ModelMode;
   provider: string;
   supports_function_calling?: boolean;
