@@ -7,6 +7,7 @@ import { formatProviderName } from '@/lib/api';
 import { getModeDisplayName } from '@/lib/calculator';
 import { getProviderLogo } from '@/lib/providerLogos';
 import { formatNumber, formatTokenCount } from '@/lib/format';
+import CTA2 from './CTA2';
 
 type ModeFamily =
   | 'text'
@@ -987,176 +988,181 @@ export default function ModelCompare({
       )}
 
       {(leftModel || rightModel) && (
-        <div ref={comparisonTableRef} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
-          <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-5 border-b border-gray-200">
-            <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Models</div>
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  {leftModel && (
-                    <img
-                      src={getProviderLogo(leftModel.provider)}
-                      alt={`${formatProviderName(leftModel.provider)} logo`}
-                      className="w-5 h-5 object-contain"
-                      loading="lazy"
-                    />
-                  )}
-                  <span className="text-lg font-semibold text-gray-900 truncate">
-                    {leftModel ? leftModel.displayName : '—'}
-                  </span>
+        <div className="space-y-8">
+          <div ref={comparisonTableRef} className="bg-white border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+            <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-5 border-b border-gray-200">
+              <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Models</div>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {leftModel && (
+                      <img
+                        src={getProviderLogo(leftModel.provider)}
+                        alt={`${formatProviderName(leftModel.provider)} logo`}
+                        className="w-5 h-5 object-contain"
+                        loading="lazy"
+                      />
+                    )}
+                    <span className="text-lg font-semibold text-gray-900 truncate">
+                      {leftModel ? leftModel.displayName : '—'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">{leftModel ? leftModel.provider : '—'}</div>
                 </div>
-                <div className="text-xs text-gray-500 truncate">{leftModel ? leftModel.provider : '—'}</div>
+              </div>
+              <div className="flex items-center gap-3 min-w-0">
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 min-w-0">
+                    {rightModel && (
+                      <img
+                        src={getProviderLogo(rightModel.provider)}
+                        alt={`${formatProviderName(rightModel.provider)} logo`}
+                        className="w-5 h-5 object-contain"
+                        loading="lazy"
+                      />
+                    )}
+                    <span className="text-lg font-semibold text-gray-900 truncate">
+                      {rightModel ? rightModel.displayName : '—'}
+                    </span>
+                  </div>
+                  <div className="text-xs text-gray-500 truncate">{rightModel ? rightModel.provider : '—'}</div>
+                </div>
               </div>
             </div>
-            <div className="flex items-center gap-3 min-w-0">
-              <div className="min-w-0">
-                <div className="flex items-center gap-2 min-w-0">
-                  {rightModel && (
-                    <img
-                      src={getProviderLogo(rightModel.provider)}
-                      alt={`${formatProviderName(rightModel.provider)} logo`}
-                      className="w-5 h-5 object-contain"
-                      loading="lazy"
-                    />
-                  )}
-                  <span className="text-lg font-semibold text-gray-900 truncate">
-                    {rightModel ? rightModel.displayName : '—'}
-                  </span>
+
+            <div className="divide-y divide-gray-200">
+              {shouldShowRow(leftContextValue, rightContextValue) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Context Length</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatK(leftContextValue) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatK(rightContextValue) : '—'}</div>
                 </div>
-                <div className="text-xs text-gray-500 truncate">{rightModel ? rightModel.provider : '—'}</div>
-              </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.max_output_tokens, rightModel?.data.max_output_tokens) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Output</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_output_tokens || 0) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_output_tokens || 0) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftInputCostValue, rightInputCostValue) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Input Cost</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? getPrimaryInputCost(leftModel) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? getPrimaryInputCost(rightModel) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftOutputCostValue, rightOutputCostValue) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Output Cost</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? getPrimaryOutputCost(leftModel) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? getPrimaryOutputCost(rightModel) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModesValue, rightModesValue) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Mode</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? getModesDisplay(leftModel) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? getModesDisplay(rightModel) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.max_input_tokens, rightModel?.data.max_input_tokens) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Input Tokens</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_input_tokens || 0) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_input_tokens || 0) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.max_tokens, rightModel?.data.max_tokens) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Tokens</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_tokens || 0) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_tokens || 0) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.max_query_tokens, rightModel?.data.max_query_tokens) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Query Tokens</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_query_tokens || 0) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_query_tokens || 0) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.supported_endpoints, rightModel?.data.supported_endpoints) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Supported Endpoints</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatList(leftModel.data.supported_endpoints) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatList(rightModel.data.supported_endpoints) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.provider, rightModel?.provider) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Provider</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatProviderName(leftModel.provider) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatProviderName(rightModel.provider) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.supports_tool_choice, rightModel?.data.supports_tool_choice) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Tool Choice</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_tool_choice) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_tool_choice) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.supports_response_schema, rightModel?.data.supports_response_schema) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Response Schema</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_response_schema) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_response_schema) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.supports_parallel_function_calling, rightModel?.data.supports_parallel_function_calling) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Parallel Function Calling</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_parallel_function_calling) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_parallel_function_calling) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.supports_prompt_caching, rightModel?.data.supports_prompt_caching) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Prompt Caching</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_prompt_caching) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_prompt_caching) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.supports_system_messages, rightModel?.data.supports_system_messages) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">System Messages</div>
+                  <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_system_messages) : '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_system_messages) : '—'}</div>
+                </div>
+              )}
+
+              {shouldShowRow(leftModel?.data.deprecation_date, rightModel?.data.deprecation_date) && (
+                <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
+                  <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Deprecation Date</div>
+                  <div className="text-gray-800 font-medium">{leftModel?.data.deprecation_date || '—'}</div>
+                  <div className="text-gray-800 font-medium">{rightModel?.data.deprecation_date || '—'}</div>
+                </div>
+              )}
+
             </div>
           </div>
-
-          <div className="divide-y divide-gray-200">
-            {shouldShowRow(leftContextValue, rightContextValue) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Context Length</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatK(leftContextValue) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatK(rightContextValue) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.max_output_tokens, rightModel?.data.max_output_tokens) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Output</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_output_tokens || 0) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_output_tokens || 0) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftInputCostValue, rightInputCostValue) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Input Cost</div>
-                <div className="text-gray-800 font-medium">{leftModel ? getPrimaryInputCost(leftModel) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? getPrimaryInputCost(rightModel) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftOutputCostValue, rightOutputCostValue) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Output Cost</div>
-                <div className="text-gray-800 font-medium">{leftModel ? getPrimaryOutputCost(leftModel) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? getPrimaryOutputCost(rightModel) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModesValue, rightModesValue) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Mode</div>
-                <div className="text-gray-800 font-medium">{leftModel ? getModesDisplay(leftModel) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? getModesDisplay(rightModel) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.max_input_tokens, rightModel?.data.max_input_tokens) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Input Tokens</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_input_tokens || 0) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_input_tokens || 0) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.max_tokens, rightModel?.data.max_tokens) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Tokens</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_tokens || 0) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_tokens || 0) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.max_query_tokens, rightModel?.data.max_query_tokens) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Max Query Tokens</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatK(leftModel.data.max_query_tokens || 0) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatK(rightModel.data.max_query_tokens || 0) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.supported_endpoints, rightModel?.data.supported_endpoints) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Supported Endpoints</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatList(leftModel.data.supported_endpoints) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatList(rightModel.data.supported_endpoints) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.provider, rightModel?.provider) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Provider</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatProviderName(leftModel.provider) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatProviderName(rightModel.provider) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.supports_tool_choice, rightModel?.data.supports_tool_choice) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Tool Choice</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_tool_choice) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_tool_choice) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.supports_response_schema, rightModel?.data.supports_response_schema) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Response Schema</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_response_schema) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_response_schema) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.supports_parallel_function_calling, rightModel?.data.supports_parallel_function_calling) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Parallel Function Calling</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_parallel_function_calling) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_parallel_function_calling) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.supports_prompt_caching, rightModel?.data.supports_prompt_caching) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Prompt Caching</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_prompt_caching) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_prompt_caching) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.supports_system_messages, rightModel?.data.supports_system_messages) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">System Messages</div>
-                <div className="text-gray-800 font-medium">{leftModel ? formatYesNo(leftModel.data.supports_system_messages) : '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel ? formatYesNo(rightModel.data.supports_system_messages) : '—'}</div>
-              </div>
-            )}
-
-            {shouldShowRow(leftModel?.data.deprecation_date, rightModel?.data.deprecation_date) && (
-              <div className="grid grid-cols-1 md:grid-cols-3 items-center gap-4 px-6 py-4">
-                <div className="text-gray-500 text-sm font-semibold uppercase tracking-wider">Deprecation Date</div>
-                <div className="text-gray-800 font-medium">{leftModel?.data.deprecation_date || '—'}</div>
-                <div className="text-gray-800 font-medium">{rightModel?.data.deprecation_date || '—'}</div>
-              </div>
-            )}
-
+          <div className="w-full mt-10">
+            <CTA2 />
           </div>
         </div>
       )}
