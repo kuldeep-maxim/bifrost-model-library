@@ -18,7 +18,7 @@ export function Footer() {
             </Link>
             <h2 className="footer-cta-title">Ready to build reliable AI applications?</h2>
             <p className="footer-cta-text">Join developers who trust Bifrost for their AI infrastructure</p>
-            <Link href="https://calendly.com/maxim-ai/bifrost-demo" target="_blank" rel="noopener noreferrer" className="footer-cta-button">
+            <Link href="https://www.getmaxim.ai/bifrost/book-a-demo?utm_medium=model-library" target="_blank" rel="noopener noreferrer" className="footer-cta-button">
               Book a Demo
             </Link>
           </div>

@@ -52,7 +52,7 @@ export function Navbar() {
               <path d="M65.8047 109.59H0V87.6719H65.8047V109.59ZM87.7393 87.6719H65.8047V65.7539H87.7393V87.6719ZM43.8701 65.7539H21.9355V43.8359H43.8701V65.7539ZM87.7393 43.8359H65.8047V21.918H87.7393V43.8359ZM65.8047 21.918H0V0H65.8047V21.918Z" fill="#33C19E" />
             </svg>
           </Link>
-          
+
           <div className="navbar-links">
             <Link href="https://www.getmaxim.ai/bifrost/#performance" className="navbar-link">Performance</Link>
             <Link href="https://www.getmaxim.ai/bifrost/#features" className="navbar-link">Features</Link>
@@ -60,7 +60,7 @@ export function Navbar() {
             <Link href="https://docs.getbifrost.ai" target="_blank" className="navbar-link">Docs</Link>
             <Link href="https://www.getmaxim.ai/bifrost/blog" className="navbar-link">Blog</Link>
           </div>
-          
+
           <nav className="navbar-actions hidden xl:flex">
             <Link href="https://discord.gg/EN6EMhQduQ" target="_blank" rel="noopener noreferrer" className="navbar-action-btn">
               <svg className="navbar-action-icon" viewBox="0 0 24 24" fill="currentColor">
@@ -74,12 +74,12 @@ export function Navbar() {
               </svg>
               <span>Github</span>
             </Link>
-            <Link href="https://calendly.com/maximai/bifrost-demo?month=2026-01" target="_blank" rel="noopener noreferrer" className="navbar-demo-btn">
+            <Link href="https://www.getmaxim.ai/bifrost/book-a-demo?utm_medium=model-library" target="_blank" rel="noopener noreferrer" className="navbar-demo-btn">
               Book a Demo
             </Link>
           </nav>
-          
-          <button 
+
+          <button
             className="navbar-menu-btn"
             aria-label="Toggle menu"
             onClick={() => setIsMenuOpen(true)}
@@ -116,11 +116,11 @@ export function Navbar() {
             <Link href="https://www.getmaxim.ai/bifrost/enterprise" className="text-lg font-medium tracking-wider uppercase text-gray-700" onClick={() => setIsMenuOpen(false)}>Enterprise</Link>
             <Link href="https://docs.getbifrost.ai" target="_blank" className="text-lg font-medium tracking-wider uppercase text-gray-700" onClick={() => setIsMenuOpen(false)}>Docs</Link>
             <Link href="https://www.getmaxim.ai/bifrost/blog" className="text-lg font-medium tracking-wider uppercase text-gray-700" onClick={() => setIsMenuOpen(false)}>Blog</Link>
-            
+
             <div className="flex flex-col gap-3 mt-2 pt-6 border-t border-gray-200">
-              <Link 
-                href="https://discord.gg/EN6EMhQduQ" 
-                target="_blank" 
+              <Link
+                href="https://discord.gg/EN6EMhQduQ"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded text-sm font-medium tracking-wider uppercase text-gray-700 hover:border-gray-400 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
@@ -130,9 +130,9 @@ export function Navbar() {
                 </svg>
                 <span>Discord</span>
               </Link>
-              <Link 
-                href="https://github.com/maximhq/bifrost" 
-                target="_blank" 
+              <Link
+                href="https://github.com/maximhq/bifrost"
+                target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 px-4 py-3 border border-gray-300 rounded text-sm font-medium tracking-wider uppercase text-gray-700 hover:border-gray-400 transition-colors"
                 onClick={() => setIsMenuOpen(false)}
@@ -143,7 +143,7 @@ export function Navbar() {
                 <span>Github</span>
               </Link>
               <Link
-                href="https://calendly.com/maximai/bifrost-demo?month=2026-01"
+                href="https://www.getmaxim.ai/bifrost/book-a-demo?utm_medium=model-library"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="w-full bg-accent text-white py-3 px-4 text-center text-sm font-medium tracking-wider uppercase hover:bg-accent-dark transition-colors"

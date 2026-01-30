@@ -47,7 +47,7 @@ export default function CTA2() {
         {/* Group 3: Buttons */}
         <div className="flex flex-col gap-3 flex-shrink-0 items-center justify-center">
           <Link
-            href="https://calendly.com/maximai/bifrost-demo?month=2026-01"
+            href="https://www.getmaxim.ai/bifrost/book-a-demo?utm_medium=model-library"
             target="_blank"
             rel="noopener noreferrer"
             className="group relative inline-block px-6 py-2.5 bg-[var(--accent)] hover:bg-[var(--accent-dark)] text-white text-sm font-medium tracking-wider uppercase transition-colors border-black/20 text-center overflow-hidden"
